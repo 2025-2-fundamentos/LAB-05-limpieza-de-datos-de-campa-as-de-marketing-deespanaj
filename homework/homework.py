@@ -49,9 +49,64 @@ def clean_campaign_data():
 
 
     """
+    import pandas as pd
+    import zipfile
+    import os
+    from io import BytesIO
+    
+ 
+    os.makedirs('files/output', exist_ok=True)
+    
+    
+    input_path = 'files/input'
+    all_data = []
+    
+    for filename in os.listdir(input_path):
+        if filename.endswith('.csv.zip'):
+            zip_path = os.path.join(input_path, filename)
+            with zipfile.ZipFile(zip_path, 'r') as z:
+                
+                csv_filename = z.namelist()[0]
+                with z.open(csv_filename) as f:
+                    df = pd.read_csv(f)
+                    all_data.append(df)
+    
+    data = pd.concat(all_data, ignore_index=True)
+    
+    #  client
+    client_df = pd.DataFrame()
+    client_df['client_id'] = data['client_id']
+    client_df['age'] = data['age']
+    client_df['job'] = data['job'].str.replace('.', '', regex=False).str.replace('-', '_', regex=False)
+    client_df['marital'] = data['marital']
+    client_df['education'] = data['education'].str.replace('.', '_', regex=False).replace('unknown', pd.NA)
+    client_df['credit_default'] = data['credit_default'].apply(lambda x: 1 if x == 'yes' else 0)
+    client_df['mortgage'] = data['mortgage'].apply(lambda x: 1 if x == 'yes' else 0)
+    
+    #  campaign
+    campaign_df = pd.DataFrame()
+    campaign_df['client_id'] = data['client_id']
+    campaign_df['number_contacts'] = data['number_contacts']
+    campaign_df['contact_duration'] = data['contact_duration']
+    campaign_df['previous_campaign_contacts'] = data['previous_campaign_contacts']
+    campaign_df['previous_outcome'] = data['previous_outcome'].apply(lambda x: 1 if x == 'success' else 0)
+    campaign_df['campaign_outcome'] = data['campaign_outcome'].apply(lambda x: 1 if x == 'yes' else 0)
+    
+    campaign_df['last_contact_date'] = pd.to_datetime(
+        '2022-' + data['month'].astype(str) + '-' + data['day'].astype(str),
+        format='%Y-%b-%d'
+    ).dt.strftime('%Y-%m-%d')
+    
 
-    return
-
+    economics_df = pd.DataFrame()
+    economics_df['client_id'] = data['client_id']
+    economics_df['cons_price_idx'] = data['cons_price_idx']
+    economics_df['euribor_three_months'] = data['euribor_three_months']
+    
+    # Guardar 
+    client_df.to_csv('files/output/client.csv', index=False)
+    campaign_df.to_csv('files/output/campaign.csv', index=False)
+    economics_df.to_csv('files/output/economics.csv', index=False)
 
 if __name__ == "__main__":
     clean_campaign_data()
